@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WealthPath | Student Financial Planner</title>
+    <!-- Tailwind CSS for Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <!-- Babel for Browser-side JSX Transpilation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slide-in { from { transform: translateX(20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        .animate-in { animation: fade-in 0.3s ease-out, slide-in 0.3s ease-out; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useMemo } = React;
+        
+        // Inline SVG Icons to avoid library loading errors
+        const DollarSign = ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>;
+        const Landmark = ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="3" y1="21" x2="21" y2="21"></line><line x1="3" y1="7" x2="21" y2="7"></line><polyline points="3 7 12 2 21 7"></polyline><line x1="5" y1="21" x2="5" y2="7"></line><line x1="9" y1="21" x2="9" y2="7"></line><line x1="13" y1="21" x2="13" y2="7"></line><line x1="17" y1="21" x2="17" y2="7"></line></svg>;
+        const Zap = ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>;
+        const ShoppingBag = ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>;
+        const Car = ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.9C2.1 11.2 2 11.6 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><circle cx="17" cy="17" r="2"></circle></svg>;
+        const Tv = ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect x="2" y="7" width="20" height="15" rx="2" ry="2"></rect><polyline points="17 2 12 7 7 2"></polyline></svg>;
+        const ArrowRight = ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>;
+        const Rocket = ({size=24, className=""}) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"></path><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2s-7.95 2-10 10c-1.22 0-2.43.32-3.5 1"></path></svg>;
+
+        // 2026 Tax Constants
+        const STANDARD_DEDUCTION = 16100;
+        const FICA_SS_RATE = 0.062;
+        const FICA_MED_RATE = 0.0145;
+
+        const STATE_TAX_RATES = {
+            "Alabama": 5.0, "Alaska": 0.0, "Arizona": 2.5, "Arkansas": 4.4, "California": 9.3,
+            "Colorado": 4.4, "Connecticut": 5.0, "Delaware": 6.6, "Florida": 0.0, "Georgia": 5.49,
+            "Hawaii": 8.25, "Idaho": 5.8, "Illinois": 4.95, "Indiana": 3.05, "Iowa": 6.0,
+            "Kansas": 5.7, "Kentucky": 4.0, "Louisiana": 4.25, "Maine": 7.15, "Maryland": 4.75,
+            "Massachusetts": 5.0, "Michigan": 4.25, "Minnesota": 7.05, "Mississippi": 5.0, "Missouri": 4.8,
+            "Montana": 5.9, "Nebraska": 5.84, "Nevada": 0.0, "New Hampshire": 0.0, "New Jersey": 6.37,
+            "New Mexico": 5.9, "New York": 6.0, "North Carolina": 4.5, "North Dakota": 2.1, "Ohio": 3.5,
+            "Oklahoma": 4.75, "Oregon": 8.75, "Pennsylvania": 3.07, "Rhode Island": 4.75, "South Carolina": 6.4,
+            "South Dakota": 0.0, "Tennessee": 0.0, "Texas": 0.0, "Utah": 4.65, "Vermont": 6.0,
+            "Virginia": 5.75, "Washington": 0.0, "West Virginia": 5.12, "Wisconsin": 5.3, "Wyoming": 0.0,
+            "Washington D.C.": 8.5
+        };
+
+        const FEDERAL_BRACKETS = [
+            { rate: 0.10, min: 0, max: 12400 },
+            { rate: 0.12, min: 12400, max: 50400 },
+            { rate: 0.22, min: 50400, max: 105700 },
+            { rate: 0.24, min: 105700, max: 201775 },
+            { rate: 0.32, min: 201775, max: 256225 },
+            { rate: 0.35, min: 256225, max: 640600 },
+            { rate: 0.37, min: 640600, max: Infinity },
+        ];
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('income');
+            const [annualSalary, setAnnualSalary] = useState(65000);
+            const [selectedState, setSelectedState] = useState("California");
+            const [stateTaxRate, setStateTaxRate] = useState(STATE_TAX_RATES["California"]);
+            const [contribution401k, setContribution401k] = useState(5);
+            const [matchTier1Rate, setMatchTier1Rate] = useState(100);
+            const [matchTier1Limit, setMatchTier1Limit] = useState(3);
+            const [matchTier2Rate, setMatchTier2Rate] = useState(50);
+            const [matchTier2Limit, setMatchTier2Limit] = useState(2);
+            const [expenses, setExpenses] = useState([
+                { id: 1, label: "Rent / Mortgage", value: 1500, icon: Landmark },
+                { id: 2, label: "Utilities", value: 150, icon: Zap },
+                { id: 3, label: "Groceries", value: 400, icon: ShoppingBag },
+                { id: 4, label: "Transportation", value: 250, icon: Car },
+                { id: 5, label: "Fun / Eating Out", value: 300, icon: Tv },
+            ]);
+            const [rothIraMonthly, setRothIraMonthly] = useState(583);
+            const [scenarioBRoth, setScenarioBRoth] = useState(1000);
+            const [expectedReturn, setExpectedReturn] = useState(7);
+
+            const calculateEmployerMatch = () => {
+                const monthlyGross = annualSalary / 12;
+                let matchPercentage = 0;
+                const tier1Applied = Math.min(contribution401k, matchTier1Limit);
+                matchPercentage += (tier1Applied * (matchTier1Rate / 100));
+                if (contribution401k > matchTier1Limit) {
+                    const tier2Applied = Math.min(contribution401k - matchTier1Limit, matchTier2Limit);
+                    matchPercentage += (tier2Applied * (matchTier2Rate / 100));
+                }
+                return (matchPercentage / 100) * monthlyGross;
+            };
+
+            const calculateFinancials = (salary, taxRate, roth, contribPct) => {
+                const monthlyGross = salary / 12;
+                const monthly401k = (contribPct / 100) * monthlyGross;
+                const taxableFederalAnnual = Math.max(0, (salary - (monthly401k * 12)) - STANDARD_DEDUCTION);
+                let fedTaxAnnual = 0;
+                FEDERAL_BRACKETS.forEach(bracket => {
+                    if (taxableFederalAnnual > bracket.min) {
+                        const taxableInBracket = Math.min(taxableFederalAnnual, bracket.max) - bracket.min;
+                        fedTaxAnnual += taxableInBracket * bracket.rate;
+                    }
+                });
+                const monthlyFedTax = fedTaxAnnual / 12;
+                const monthlyFICA = (monthlyGross * FICA_SS_RATE) + (monthlyGross * FICA_MED_RATE);
+                const monthlyStateTax = ((monthlyGross - monthly401k) * (taxRate / 100));
+                const monthlyTakeHome = monthlyGross - monthlyFedTax - monthlyFICA - monthlyStateTax - monthly401k;
+                return { 
+                    monthlyTakeHome, 
+                    totalMonthlyInvestment: roth + monthly401k + calculateEmployerMatch(), 
+                    monthlyGross 
+                };
+            };
+
+            const scenarioA = useMemo(() => 
+                calculateFinancials(annualSalary, stateTaxRate, rothIraMonthly, contribution401k), 
+                [annualSalary, stateTaxRate, rothIraMonthly, contribution401k, matchTier1Rate, matchTier1Limit, matchTier2Rate, matchTier2Limit]
+            );
+
+            const currentTotalExpenses = useMemo(() => expenses.reduce((sum, exp) => sum + exp.value, 0), [expenses]);
+            const currentSurplus = scenarioA.monthlyTakeHome - currentTotalExpenses - rothIraMonthly;
+
+            const updateExpense = (id, newValue) => {
+                setExpenses(prev => prev.map(exp => exp.id === id ? { ...exp, value: newValue } : exp));
+            };
+
+            const monthsToTarget = (monthlyInvest, target) => {
+                if (monthlyInvest <= 0) return Infinity;
+                const r = (expectedReturn / 100) / 12;
+                if (r === 0) return target / monthlyInvest;
+                return Math.log(1 + (target * r / monthlyInvest)) / Math.log(1 + r);
+            };
+
+            const getMilestones = (inv) => ({
+                to1M: monthsToTarget(inv, 1000000)
+            });
+
+            const formatTime = (months) => {
+                if (months === Infinity) return "Never";
+                const y = Math.floor(months / 12);
+                const m = Math.round(months % 12);
+                return `${y}y ${m}m`;
+            };
+
+            return (
+                <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
+                    <header className="pt-10 pb-6 px-6 text-center">
+                        <h1 className="text-3xl font-black text-indigo-900 flex items-center justify-center gap-2">
+                             WealthPath
+                        </h1>
+                        <p className="text-slate-500 text-sm mt-1">Student Wealth Planner</p>
+                    </header>
+
+                    <div className="flex items-center justify-between mb-8 max-w-md mx-auto px-4">
+                        {['income', 'match', 'budget', 'lab'].map((step, idx) => (
+                            <React.Fragment key={step}>
+                                <div 
+                                    onClick={() => setActiveTab(step)}
+                                    className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-all cursor-pointer ${
+                                        activeTab === step ? 'bg-indigo-600 text-white shadow-lg ring-4 ring-indigo-100' : 'bg-slate-200 text-slate-500'
+                                    }`}
+                                >
+                                    {idx + 1}
+                                </div>
+                                {idx < 3 && <div className={`flex-1 h-1 mx-2 rounded-full ${['match','budget','lab'].indexOf(activeTab) > idx ? 'bg-indigo-600' : 'bg-slate-200'}`} />}
+                            </React.Fragment>
+                        ))}
+                    </div>
+
+                    <main className="max-w-xl mx-auto px-6">
+                        {activeTab === 'income' && (
+                            <div className="space-y-6 animate-in">
+                                <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm">
+                                    <h2 className="text-xl font-bold mb-4">Salary & Location</h2>
+                                    <div className="space-y-4">
+                                        <div className="bg-slate-50 p-4 rounded-2xl">
+                                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Annual Base Salary</label>
+                                            <input type="number" value={annualSalary} onChange={(e) => setAnnualSalary(Number(e.target.value))} className="bg-transparent text-2xl font-black outline-none w-full" />
+                                        </div>
+                                        <div className="bg-slate-50 p-4 rounded-2xl">
+                                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">State</label>
+                                            <select value={selectedState} onChange={(e) => { setSelectedState(e.target.value); setStateTaxRate(STATE_TAX_RATES[e.target.value]); }} className="bg-transparent text-lg font-bold outline-none w-full">
+                                                {Object.keys(STATE_TAX_RATES).map(state => <option key={state} value={state}>{state}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={() => setActiveTab('match')} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2">Next: Employer Match <ArrowRight size={20} /></button>
+                            </div>
+                        )}
+
+                        {activeTab === 'match' && (
+                            <div className="space-y-6 animate-in">
+                                <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                                    <h2 className="text-xl font-bold mb-6">401(k) Match Details</h2>
+                                    <div className="space-y-6">
+                                        <div className="bg-slate-50 p-4 rounded-2xl">
+                                            <div className="flex justify-between mb-3">
+                                                <label className="text-xs font-bold text-slate-500 uppercase">Your Contribution</label>
+                                                <span className="text-lg font-black text-indigo-600">{contribution401k}%</span>
+                                            </div>
+                                            <input type="range" min="0" max="20" value={contribution401k} onChange={(e) => setContribution401k(Number(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none accent-indigo-600" />
+                                        </div>
+                                        <div className="p-5 bg-emerald-900 rounded-[2rem] text-white flex justify-between items-center">
+                                            <div>
+                                                <p className="text-xs font-bold text-emerald-300 uppercase mb-1">Monthly "Free" Money</p>
+                                                <p className="text-2xl font-black">${Math.round(calculateEmployerMatch()).toLocaleString()}</p>
+                                            </div>
+                                            <Rocket className="text-emerald-400 opacity-50" size={32} />
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={() => setActiveTab('budget')} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold flex items-center justify-center gap-2">Next: Monthly Budget <ArrowRight size={20} /></button>
+                            </div>
+                        )}
+
+                        {activeTab === 'budget' && (
+                            <div className="space-y-6 animate-in">
+                                <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
+                                    <h2 className="text-xl font-bold mb-6">Lifestyle Expenses</h2>
+                                    <div className="space-y-3 mb-6">
+                                        {expenses.map(exp => (
+                                            <div key={exp.id} className="flex items-center gap-3 p-3 bg-slate-50 rounded-2xl border border-slate-100/50">
+                                                <div className="flex-1">
+                                                    <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">{exp.label}</p>
+                                                    <input type="number" value={exp.value} onChange={(e) => updateExpense(exp.id, Number(e.target.value))} className="w-full font-bold bg-transparent outline-none text-slate-900" />
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className={`p-8 rounded-[2rem] text-center ${currentSurplus >= 0 ? 'bg-emerald-600' : 'bg-rose-500'} text-white shadow-xl`}>
+                                    <p className="text-xs font-bold uppercase opacity-80 mb-1">Net Monthly Surplus</p>
+                                    <div className="text-5xl font-black mb-2">${Math.round(currentSurplus).toLocaleString()}</div>
+                                    <button onClick={() => setActiveTab('lab')} className="mt-4 w-full py-3 bg-slate-900 text-white rounded-xl font-bold">Compounding Lab</button>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'lab' && (
+                            <div className="space-y-6 animate-in">
+                                <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white">
+                                    <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-indigo-400"><Zap size={24} /> Compounding Lab</h2>
+                                    <div className="space-y-8">
+                                        <div>
+                                            <div className="flex justify-between mb-3 text-sm"><span className="text-slate-400">Monthly Investing Goal</span><span className="font-black text-xl">${scenarioBRoth}/mo</span></div>
+                                            <input type="range" min="100" max="5000" step="100" value={scenarioBRoth} onChange={(e)=>setScenarioBRoth(Number(e.target.value))} className="w-full h-3 bg-slate-700 rounded-lg appearance-none accent-indigo-400" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-white p-6 rounded-3xl border border-slate-200">
+                                    <p className="text-xs font-bold text-slate-400 uppercase mb-4">Milestone: $1 Million Dollars</p>
+                                    <div className="flex justify-between items-center"><span className="text-slate-600">Time to Goal:</span><span className="text-2xl font-black text-indigo-600">{formatTime(getMilestones(scenarioBRoth).to1M)}</span></div>
+                                </div>
+                            </div>
+                        )}
+                    </main>
+
+                    <footer className="fixed bottom-0 left-0 right-0 bg-white/80 backdrop-blur-md border-t border-slate-200 p-4 flex justify-between px-8 z-50">
+                        <div><p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Invested</p><p className="text-sm font-black text-indigo-600">${Math.round(scenarioA.totalMonthlyInvestment)}/mo</p></div>
+                        <div className="text-right"><p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Monthly Surplus</p><p className={`text-sm font-black ${currentSurplus >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>${Math.round(currentSurplus)}</p></div>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
