@@ -1,559 +1,399 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { 
-  Landmark, 
-  ArrowRight, 
-  ArrowLeft,
-  TrendingUp,
-  MapPin,
-  Briefcase,
-  Plus,
-  Trash2,
-  HeartPulse,
-  Smartphone,
-  ShieldCheck,
-  Coffee,
-  GraduationCap,
-  Tv,
-  Wallet,
-  Coins,
-  CheckCircle2,
-  AlertCircle,
-  PiggyBank,
-  Receipt,
-  User,
-  History,
-  Hourglass,
-  Info,
-  PlusCircle,
-  X,
-  Target,
-  Lock,
-  Flame,
-  ChevronRight,
-  Calculator,
-  Sparkles,
-  PieChart,
-  Settings2
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WealthPlanner v18</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        input[type="range"] { accent-color: #10b981; }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900">
+    <div id="root"></div>
 
-const STANDARD_DEDUCTION = 16100;
-const FICA_SS_RATE = 0.062;
-const FICA_MED_RATE = 0.0145;
-const ROTH_IRA_ANNUAL_MAX = 7000;
+    <script type="text/babel">
+        const { useState, useMemo, useEffect } = React;
 
-const STATE_TAX_RATES = {
-  "Alabama": 5.0, "Alaska": 0.0, "Arizona": 2.5, "Arkansas": 4.4, "California": 9.3,
-  "Colorado": 4.4, "Connecticut": 5.0, "Delaware": 6.6, "Florida": 0.0, "Georgia": 5.49,
-  "Hawaii": 8.25, "Idaho": 5.8, "Illinois": 4.95, "Indiana": 3.05, "Iowa": 6.0,
-  "Kansas": 5.7, "Kentucky": 4.0, "Louisiana": 4.25, "Maine": 7.15, "Maryland": 4.75,
-  "Massachusetts": 5.0, "Michigan": 4.25, "Minnesota": 7.05, "Mississippi": 5.0, "Missouri": 4.8,
-  "Montana": 5.9, "Nebraska": 5.84, "Nevada": 0.0, "New Hampshire": 0.0, "New Jersey": 6.37,
-  "New Mexico": 5.9, "New York": 6.0, "North Carolina": 4.5, "North Dakota": 2.1, "Ohio": 3.5,
-  "Oklahoma": 4.75, "Oregon": 8.75, "Pennsylvania": 3.07, "Rhode Island": 4.75, "South Carolina": 6.4,
-  "South Dakota": 0.0, "Tennessee": 0.0, "Texas": 0.0, "Utah": 4.65, "Vermont": 6.0,
-  "Virginia": 5.75, "Washington": 0.0, "West Virginia": 5.12, "Wisconsin": 5.3, "Wyoming": 0.0,
-  "Washington D.C.": 8.5
-};
+        // Corrected Icon component using lucide.createIcons
+        const Icon = ({ name, size = 18, className = "" }) => {
+            useEffect(() => {
+                if (window.lucide) {
+                    window.lucide.createIcons();
+                }
+            }, [name]);
 
-const FEDERAL_BRACKETS = [
-  { rate: 0.10, min: 0, max: 12400 },
-  { rate: 0.12, min: 12400, max: 50400 },
-  { rate: 0.22, min: 50400, max: 105700 },
-  { rate: 0.24, min: 105700, max: 201775 },
-  { rate: 0.32, min: 201775, max: 256225 },
-  { rate: 0.35, min: 256225, max: 640600 },
-  { rate: 0.37, min: 640600, max: Infinity },
-];
+            return <i data-lucide={name.toLowerCase().replace(/([a-z])([A-Z])/g, '$1-$2')} style={{ width: size, height: size }} className={className}></i>;
+        };
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('start');
-  const [annualSalary, setAnnualSalary] = useState(75000);
-  const [selectedState, setSelectedState] = useState("California");
-  const [ageToday, setAgeToday] = useState(25);
-  const [stopAge, setStopAge] = useState(60);
-  
-  const [matchTier1Rate, setMatchTier1Rate] = useState(100); 
-  const [matchTier1Limit, setMatchTier1Limit] = useState(3);  
-  const [matchTier2Rate, setMatchTier2Rate] = useState(50);  
-  const [matchTier2Limit, setMatchTier2Limit] = useState(2);  
-  
-  const [user401kContribution, setUser401kContribution] = useState(6);
-  const [rothIraAnnual, setRothIraAnnual] = useState(2400); 
-  
-  // Interactive Sandbox State
-  const [sbSalary, setSbSalary] = useState(75000);
-  const [sb401kRate, setSb401kRate] = useState(6);
-  const [sbRothMonthly, setSbRothMonthly] = useState(200);
-  const [sbReturn, setSbReturn] = useState(6);
-  const [sbAgeToday, setSbAgeToday] = useState(25);
-  const [sbContributeUntil, setSbContributeUntil] = useState(60);
-  const [sbRetirementAge, setSbRetirementAge] = useState(65);
+        const STANDARD_DEDUCTION = 16100;
+        const FICA_SS_RATE = 0.062;
+        const FICA_MED_RATE = 0.0145;
+        const ROTH_IRA_ANNUAL_MAX = 7000;
 
-  // Sync sandbox with base values when they change
-  useEffect(() => {
-    setSbSalary(annualSalary);
-    setSb401kRate(user401kContribution);
-    setSbRothMonthly(Math.round(rothIraAnnual / 12));
-    setSbAgeToday(ageToday);
-    setSbContributeUntil(stopAge);
-  }, [annualSalary, user401kContribution, rothIraAnnual, ageToday, stopAge]);
+        const STATE_TAX_RATES = {
+            "Alabama": 5.0, "Alaska": 0.0, "Arizona": 2.5, "Arkansas": 4.4, "California": 9.3,
+            "Colorado": 4.4, "Connecticut": 5.0, "Delaware": 6.6, "Florida": 0.0, "Georgia": 5.49,
+            "Hawaii": 8.25, "Idaho": 5.8, "Illinois": 4.95, "Indiana": 3.05, "Iowa": 6.0,
+            "Kansas": 5.7, "Kentucky": 4.0, "Louisiana": 4.25, "Maine": 7.15, "Maryland": 4.75,
+            "Massachusetts": 5.0, "Michigan": 4.25, "Minnesota": 7.05, "Mississippi": 5.0, "Missouri": 4.8,
+            "Montana": 5.9, "Nebraska": 5.84, "Nevada": 0.0, "New Hampshire": 0.0, "New Jersey": 6.37,
+            "New Mexico": 5.9, "New York": 6.0, "North Carolina": 4.5, "North Dakota": 2.1, "Ohio": 3.5,
+            "Oklahoma": 4.75, "Oregon": 8.75, "Pennsylvania": 3.07, "Rhode Island": 4.75, "South Carolina": 6.4,
+            "South Dakota": 0.0, "Tennessee": 0.0, "Texas": 0.0, "Utah": 4.65, "Vermont": 6.0,
+            "Virginia": 5.75, "Washington": 0.0, "West Virginia": 5.12, "Wisconsin": 5.3, "Wyoming": 0.0,
+            "Washington D.C.": 8.5
+        };
 
-  const [expenses, setExpenses] = useState([
-    { id: 1, label: "Rent / Mortgage", value: 1800, icon: Landmark },
-    { id: 2, label: "Emergency Fund / Savings", value: 100, icon: PiggyBank },
-    { id: 3, label: "Health Insurance", value: 300, icon: HeartPulse },
-    { id: 4, label: "Car Insurance", value: 200, icon: ShieldCheck },
-    { id: 5, label: "Phone Plan", value: 75, icon: Smartphone },
-    { id: 6, label: "Streaming Services", value: 100, icon: Tv },
-    { id: 7, label: "Student Loans", value: 300, icon: GraduationCap },
-    { id: 8, label: "Dining Out", value: 100, icon: Coffee },
-  ]);
+        const FEDERAL_BRACKETS = [
+            { rate: 0.10, min: 0, max: 12400 },
+            { rate: 0.12, min: 12400, max: 50400 },
+            { rate: 0.22, min: 50400, max: 105700 },
+            { rate: 0.24, min: 105700, max: 201775 },
+            { rate: 0.32, min: 201775, max: 256225 },
+            { rate: 0.35, min: 256225, max: 640600 },
+            { rate: 0.37, min: 640600, max: Infinity },
+        ];
 
-  const addExpense = () => {
-    setExpenses([...expenses, { 
-      id: Date.now(), 
-      label: "New Expense", 
-      value: 0, 
-      icon: Receipt 
-    }]);
-  };
-
-  const removeExpense = (id) => {
-    setExpenses(expenses.filter(e => e.id !== id));
-  };
-
-  const calculations = useMemo(() => {
-    const monthlyGross = annualSalary / 12;
-    const monthly401k = (user401kContribution / 100) * monthlyGross;
-    const rothIraMonthly = rothIraAnnual / 12;
-    
-    const getMatchAmount = (salary, contribution) => {
-        const mGross = salary / 12;
-        let matchRateSum = 0;
-        const tier1Applied = Math.min(contribution, matchTier1Limit);
-        matchRateSum += (tier1Applied * (matchTier1Rate / 100));
-        
-        if (contribution > matchTier1Limit) {
-          const tier2Applied = Math.min(contribution - matchTier1Limit, matchTier2Limit);
-          matchRateSum += (tier2Applied * (matchTier2Rate / 100));
-        }
-        return (matchRateSum / 100) * mGross;
-    };
-
-    const monthlyMatch = getMatchAmount(annualSalary, user401kContribution);
-
-    const taxableFederalAnnual = Math.max(0, (annualSalary - (monthly401k * 12)) - STANDARD_DEDUCTION);
-    let fedTaxAnnual = 0;
-    FEDERAL_BRACKETS.forEach(bracket => {
-      if (taxableFederalAnnual > bracket.min) {
-        const taxableInBracket = Math.min(taxableFederalAnnual, bracket.max) - bracket.min;
-        fedTaxAnnual += taxableInBracket * bracket.rate;
-      }
-    });
-
-    const monthlyFedTax = fedTaxAnnual / 12;
-    const monthlyFICA = (monthlyGross * FICA_SS_RATE) + (monthlyGross * FICA_MED_RATE);
-    const stateTaxRate = STATE_TAX_RATES[selectedState] || 0;
-    const monthlyStateTax = ((monthlyGross - monthly401k) * (stateTaxRate / 100));
-    
-    const monthlyTakeHome = monthlyGross - monthlyFedTax - monthlyFICA - monthlyStateTax - monthly401k;
-    const moneyToWorkWith = monthlyTakeHome - rothIraMonthly;
-    const totalExpenses = expenses.reduce((sum, exp) => sum + exp.value, 0);
-    const surplus = moneyToWorkWith - totalExpenses;
-
-    const monthlyInvestmentTotal = monthly401k + monthlyMatch + rothIraMonthly;
-
-    const calculateTerminalBalance = (rate) => {
-      let balance = 0;
-      const totalMonths = (stopAge - ageToday) * 12;
-      for (let m = 1; m <= totalMonths; m++) {
-        balance = (balance + monthlyInvestmentTotal) * (1 + (rate / 12));
-      }
-      return balance;
-    };
-
-    // Sandbox Calculations
-    const sbMonthlyGross = sbSalary / 12;
-    const sbMonthly401k = (sb401kRate / 100) * sbMonthlyGross;
-    const sbMonthlyMatch = getMatchAmount(sbSalary, sb401kRate);
-    const sbMonthlyTaxableInv = sbMonthly401k + sbMonthlyMatch;
-    
-    let sandboxTaxable = 0;
-    let sandboxRoth = 0;
-    const totalSandboxMonths = Math.max(0, (sbRetirementAge - sbAgeToday) * 12);
-    const contributionMonths = Math.max(0, (sbContributeUntil - sbAgeToday) * 12);
-
-    for (let m = 1; m <= totalSandboxMonths; m++) {
-      const isContributing = m <= contributionMonths;
-      sandboxTaxable = (sandboxTaxable + (isContributing ? sbMonthlyTaxableInv : 0)) * (1 + ((sbReturn / 100) / 12));
-      sandboxRoth = (sandboxRoth + (isContributing ? sbRothMonthly : 0)) * (1 + ((sbReturn / 100) / 12));
-    }
-
-    return { 
-      monthlyTakeHome, moneyToWorkWith, surplus, 
-      monthlyMatch, monthly401k, totalExpenses,
-      rothIraMonthly,
-      matchRemaining: Math.max(0, (matchTier1Limit + matchTier2Limit) - user401kContribution),
-      fullMatchReq: (matchTier1Limit + matchTier2Limit),
-      monthlyInvestmentTotal,
-      terminalBalanceHistorical: calculateTerminalBalance(0.06),
-      sandbox: {
-        taxable: sandboxTaxable,
-        roth: sandboxRoth,
-        total: sandboxTaxable + sandboxRoth
-      }
-    };
-  }, [annualSalary, user401kContribution, selectedState, expenses, rothIraAnnual, matchTier1Rate, matchTier1Limit, matchTier2Rate, matchTier2Limit, ageToday, stopAge, sbReturn, sbRothMonthly, sbSalary, sb401kRate, sbContributeUntil, sbRetirementAge, sbAgeToday]);
-
-  const tabs = ['start', 'investing', 'budget', 'analysis'];
-  const isBudgetBalanced = calculations.surplus >= 0;
-  const currentIdx = tabs.indexOf(activeTab);
-  const canContinue = activeTab !== 'budget' || isBudgetBalanced;
-
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans pb-32">
-      <nav className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <div className="bg-emerald-600 p-2 rounded-xl shadow-emerald-100 shadow-lg">
-            <TrendingUp className="text-white" size={18} />
-          </div>
-          <div>
-            <span className="font-black text-xl tracking-tighter text-slate-800 uppercase italic leading-none block">WealthPlanner</span>
-            <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest leading-none">v18.0</span>
-          </div>
-        </div>
-        <div className="text-right">
-          <span className="text-[10px] font-black text-slate-400 block uppercase tracking-widest mb-1">Monthly Surplus</span>
-          <span className={`font-black text-lg transition-colors ${calculations.surplus >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-            ${Math.round(calculations.surplus).toLocaleString()}
-          </span>
-        </div>
-      </nav>
-
-      <main className="max-w-xl mx-auto px-4 mt-8">
-        <div className="flex gap-1 mb-8 bg-slate-200/60 p-1.5 rounded-2xl">
-          {tabs.map((tab) => (
-            <button
-              key={tab}
-              disabled={tab === 'analysis' && !isBudgetBalanced}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 py-2.5 rounded-xl font-black text-[10px] transition-all uppercase tracking-widest ${
-                activeTab === tab ? 'bg-white text-emerald-600 shadow-sm' : 
-                (tab === 'analysis' && !isBudgetBalanced ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500')
-              }`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-
-        {activeTab === 'start' && (
-          <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
-            <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200">
-              <h2 className="text-lg font-black mb-6 flex items-center gap-2 uppercase tracking-tight text-slate-700">
-                <Briefcase size={20} className="text-emerald-600" />
-                Employment Basis
-              </h2>
-              <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Age Today</label>
-                    <div className="flex items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 focus-within:border-emerald-200 transition-colors">
-                      <User size={18} className="text-slate-300 mr-2" />
-                      <input type="number" className="bg-transparent text-xl font-black outline-none w-full" value={ageToday} onChange={(e) => setAgeToday(Number(e.target.value))} />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Current State</label>
-                    <div className="flex items-center bg-slate-50 p-4 rounded-2xl border border-slate-100 focus-within:border-emerald-200 transition-colors">
-                      <MapPin size={18} className="text-slate-300 mr-2" />
-                      <select className="bg-transparent text-sm font-bold outline-none w-full appearance-none cursor-pointer" value={selectedState} onChange={(e) => setSelectedState(e.target.value)}>
-                        {Object.keys(STATE_TAX_RATES).map(s => <option key={s} value={s}>{s}</option>)}
-                      </select>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Expected Annual Salary</label>
-                  <div className="flex items-center bg-slate-50 p-5 rounded-2xl border border-slate-100 focus-within:border-emerald-200 transition-colors">
-                    <span className="text-2xl font-black text-slate-300 mr-2">$</span>
-                    <input type="number" className="bg-transparent text-2xl font-black outline-none w-full" value={annualSalary} onChange={(e) => setAnnualSalary(Number(e.target.value))} />
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {activeTab === 'investing' && (
-          <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
-            <section className="bg-emerald-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
-                <div className="flex justify-between items-start mb-6">
-                    <div>
-                    <h3 className="text-emerald-100 font-black text-2xl uppercase tracking-wider mb-1">401k Contribution</h3>
-                    <p className="text-[10px] font-bold text-emerald-400/80 uppercase tracking-widest leading-relaxed max-w-[280px]">
-                        Monthly impact on your wallet.
-                    </p>
-                    </div>
-                    {calculations.matchRemaining > 0 ? (
-                    <button 
-                        onClick={() => setUser401kContribution(calculations.fullMatchReq)}
-                        className="flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white px-3 py-2 rounded-xl text-[9px] font-black uppercase transition-all shrink-0 ml-2 shadow-lg shadow-rose-950/20"
-                    >
-                        <Target size={12} /> Set to Max Match ({calculations.fullMatchReq}%)
-                    </button>
-                    ) : (
-                    <div className="bg-emerald-500 text-white px-3 py-1 rounded-full text-[9px] font-black uppercase flex items-center gap-1 shrink-0 ml-2">
-                        <CheckCircle2 size={12} /> Full Match Active
-                    </div>
-                    )}
-                </div>
-                
-                <div className="flex items-end gap-3 mb-8">
-                    <span className="text-6xl font-black leading-none">{user401kContribution}</span>
-                    <span className="text-emerald-500 font-black text-2xl mb-1">%</span>
-                </div>
-
-                <input 
-                    type="range" min="0" max="30" step="1" 
-                    className="w-full h-2 bg-emerald-800 rounded-lg appearance-none cursor-pointer accent-emerald-400 mb-8"
-                    value={user401kContribution}
-                    onChange={(e) => setUser401kContribution(Number(e.target.value))}
-                />
-
-                <div className="grid grid-cols-2 gap-4 border-t border-emerald-800/50 pt-6">
-                    <div>
-                    <span className="text-[10px] text-emerald-500 uppercase font-black block mb-1">Monthly Cost (Pre-Tax)</span>
-                    <span className="text-xl font-bold">${Math.round(calculations.monthly401k).toLocaleString()}</span>
-                    </div>
-                    <div>
-                    <span className="text-[10px] text-emerald-500 uppercase font-black block mb-1">Employer Match</span>
-                    <span className="text-xl font-bold text-emerald-400">+${Math.round(calculations.monthlyMatch).toLocaleString()}</span>
-                    </div>
-                </div>
-            </section>
-
-            <section className="bg-emerald-900 rounded-[2.5rem] p-8 text-white shadow-xl relative overflow-hidden">
-                <div className="flex justify-between items-start mb-4">
-                    <div>
-                    <h3 className="text-emerald-100 font-black text-2xl uppercase tracking-wider mb-1">Roth IRA Annual Goal</h3>
-                    <p className="text-[10px] font-bold text-emerald-400/80 uppercase tracking-widest leading-relaxed">
-                        Tax-free retirement savings.
-                    </p>
-                    </div>
-                    <div className="bg-emerald-500/20 text-emerald-400 px-3 py-1 rounded-full text-[9px] font-black uppercase border border-emerald-500/30 shrink-0 ml-2">
-                    2024 Limit: $7,000
-                    </div>
-                </div>
-                
-                <div className="flex items-end gap-2 mb-8 mt-2">
-                    <span className="text-emerald-500 font-black text-2xl mb-1">$</span>
-                    <span className="text-6xl font-black leading-none">{rothIraAnnual.toLocaleString()}</span>
-                </div>
-
-                <input 
-                    type="range" min="0" max={ROTH_IRA_ANNUAL_MAX} step="100" 
-                    className="w-full h-2 bg-emerald-800 rounded-lg appearance-none cursor-pointer accent-emerald-400 mb-8"
-                    value={rothIraAnnual}
-                    onChange={(e) => setRothIraAnnual(Number(e.target.value))}
-                />
-
-                <div className="flex items-center justify-between border-t border-emerald-800/50 pt-6">
-                    <div>
-                    <span className="text-[10px] text-emerald-500 uppercase font-black block mb-1">Monthly Contribution</span>
-                    <span className="text-xl font-bold">${Math.round(calculations.rothIraMonthly).toLocaleString()}</span>
-                    </div>
-                    <button onClick={() => setRothIraAnnual(7000)} className="text-[9px] text-emerald-400 uppercase font-black">Max Out</button>
-                </div>
-            </section>
-          </div>
-        )}
-
-        {activeTab === 'budget' && (
-          <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300">
-            {/* Header Box V18 */}
-            <section className="bg-emerald-600 rounded-[2rem] p-6 text-white shadow-xl shadow-emerald-100 flex flex-col gap-4">
-              <div className="flex justify-between items-center border-b border-white/20 pb-4">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-100/70">Monthly Income (Post-Tax)</span>
-                  <span className="text-2xl font-black italic tracking-tighter">${Math.round(calculations.monthlyTakeHome).toLocaleString()}</span>
-                </div>
-                <div className="flex flex-col text-right">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-100/70">Monthly Budgeted Expenses</span>
-                  <span className="text-2xl font-black italic tracking-tighter">${Math.round(calculations.totalExpenses).toLocaleString()}</span>
-                </div>
-              </div>
-              <div className="flex justify-between items-center">
-                <div className="flex flex-col">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-emerald-100/70">Available for Savings</span>
-                  <span className={`text-3xl font-black tracking-tighter ${calculations.surplus < 0 ? 'text-rose-200' : 'text-white'}`}>
-                    ${Math.round(calculations.surplus).toLocaleString()}
-                  </span>
-                </div>
-                <div className="text-[10px] font-bold text-emerald-100 max-w-[140px] text-right italic leading-tight">
-                  Make adjustments below or add new budget categories.
-                </div>
-              </div>
-            </section>
-
-            <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200">
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-lg font-black uppercase tracking-tight text-slate-700">Budget Categories</h2>
-                <button onClick={addExpense} className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase flex items-center gap-2">ADD <Plus size={16} /></button>
-              </div>
-
-              <div className="space-y-3">
-                {expenses.map((expense) => (
-                  <div key={expense.id} className="group flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100 transition-all">
-                    <div className="flex-1">
-                      <input className="bg-transparent font-bold text-sm outline-none w-full" value={expense.label} onChange={(e) => {
-                          const newExp = [...expenses];
-                          newExp.find(ex => ex.id === expense.id).label = e.target.value;
-                          setExpenses(newExp);
-                        }}
-                      />
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-xs font-black text-slate-300">$</span>
-                        <input type="number" className="bg-transparent text-xs font-black outline-none w-20" value={expense.value} onChange={(e) => {
-                            const newExp = [...expenses];
-                            newExp.find(ex => ex.id === expense.id).value = Number(e.target.value);
-                            setExpenses(newExp);
-                          }}
-                        />
-                      </div>
-                    </div>
-                    <button onClick={() => removeExpense(expense.id)} className="text-rose-400 opacity-50 hover:opacity-100 transition-all"><Trash2 size={16} /></button>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </div>
-        )}
-
-        {activeTab === 'analysis' && (
-          <div className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-12">
+        function App() {
+            const [activeTab, setActiveTab] = useState('start');
+            const [annualSalary, setAnnualSalary] = useState(75000);
+            const [selectedState, setSelectedState] = useState("California");
+            const [ageToday, setAgeToday] = useState(25);
+            const [stopAge, setStopAge] = useState(60);
             
-            <section className="bg-emerald-600 rounded-[2.5rem] p-10 text-white shadow-xl shadow-emerald-100 text-center relative overflow-hidden">
-                <h3 className="text-sm font-black uppercase tracking-widest mb-4">ESTIMATED RETIREMENT SAVINGS</h3>
-                <p className="text-[11px] font-bold text-emerald-100 leading-relaxed max-w-[400px] mx-auto mb-8">
-                  Based on everything you shared about your salary and budget, you may have about this much saved up for retirement. And this doesn't even include if you get salary increases for promotions!
-                </p>
-                <div className="text-5xl md:text-6xl font-black mb-2 tracking-tight">
-                  ${Math.round(calculations.terminalBalanceHistorical).toLocaleString()}
+            const [matchTier1Rate, setMatchTier1Rate] = useState(100); 
+            const [matchTier1Limit, setMatchTier1Limit] = useState(3);  
+            const [matchTier2Rate, setMatchTier2Rate] = useState(50);  
+            const [matchTier2Limit, setMatchTier2Limit] = useState(2);  
+            
+            const [user401kContribution, setUser401kContribution] = useState(6);
+            const [rothIraAnnual, setRothIraAnnual] = useState(2400); 
+            
+            // Sandbox State
+            const [sbSalary, setSbSalary] = useState(75000);
+            const [sb401kRate, setSb401kRate] = useState(6);
+            const [sbRothMonthly, setSbRothMonthly] = useState(200);
+            const [sbReturn, setSbReturn] = useState(6);
+            const [sbAgeToday, setSbAgeToday] = useState(25);
+            const [sbContributeUntil, setSbContributeUntil] = useState(60);
+            const [sbRetirementAge, setSbRetirementAge] = useState(65);
+
+            useEffect(() => {
+                setSbSalary(annualSalary);
+                setSb401kRate(user401kContribution);
+                setSbRothMonthly(Math.round(rothIraAnnual / 12));
+                setSbAgeToday(ageToday);
+                setSbContributeUntil(stopAge);
+            }, [annualSalary, user401kContribution, rothIraAnnual, ageToday, stopAge]);
+
+            const [expenses, setExpenses] = useState([
+                { id: 1, label: "Rent / Mortgage", value: 1800, icon: "landmark" },
+                { id: 2, label: "Emergency Fund / Savings", value: 100, icon: "piggy-bank" },
+                { id: 3, label: "Health Insurance", value: 300, icon: "heart-pulse" },
+                { id: 4, label: "Car Insurance", value: 200, icon: "shield-check" },
+                { id: 5, label: "Phone Plan", value: 75, icon: "smartphone" },
+                { id: 6, label: "Streaming Services", value: 100, icon: "tv" },
+                { id: 7, label: "Student Loans", value: 300, icon: "graduation-cap" },
+                { id: 8, label: "Dining Out", value: 100, icon: "coffee" },
+            ]);
+
+            const addExpense = () => {
+                setExpenses([...expenses, { id: Date.now(), label: "New Expense", value: 0, icon: "receipt" }]);
+            };
+
+            const removeExpense = (id) => {
+                setExpenses(expenses.filter(e => e.id !== id));
+            };
+
+            const calculations = useMemo(() => {
+                const monthlyGross = annualSalary / 12;
+                const monthly401k = (user401kContribution / 100) * monthlyGross;
+                const rothIraMonthly = rothIraAnnual / 12;
+                
+                const getMatchAmount = (salary, contribution) => {
+                    const mGross = salary / 12;
+                    let matchRateSum = 0;
+                    const tier1Applied = Math.min(contribution, matchTier1Limit);
+                    matchRateSum += (tier1Applied * (matchTier1Rate / 100));
+                    if (contribution > matchTier1Limit) {
+                        const tier2Applied = Math.min(contribution - matchTier1Limit, matchTier2Limit);
+                        matchRateSum += (tier2Applied * (matchTier2Rate / 100));
+                    }
+                    return (matchRateSum / 100) * mGross;
+                };
+
+                const monthlyMatch = getMatchAmount(annualSalary, user401kContribution);
+                const taxableFederalAnnual = Math.max(0, (annualSalary - (monthly401k * 12)) - STANDARD_DEDUCTION);
+                let fedTaxAnnual = 0;
+                FEDERAL_BRACKETS.forEach(bracket => {
+                    if (taxableFederalAnnual > bracket.min) {
+                        const taxableInBracket = Math.min(taxableFederalAnnual, bracket.max) - bracket.min;
+                        fedTaxAnnual += taxableInBracket * bracket.rate;
+                    }
+                });
+
+                const monthlyFedTax = fedTaxAnnual / 12;
+                const monthlyFICA = (monthlyGross * FICA_SS_RATE) + (monthlyGross * FICA_MED_RATE);
+                const stateTaxRate = STATE_TAX_RATES[selectedState] || 0;
+                const monthlyStateTax = ((monthlyGross - monthly401k) * (stateTaxRate / 100));
+                
+                const monthlyTakeHome = monthlyGross - monthlyFedTax - monthlyFICA - monthlyStateTax - monthly401k;
+                const moneyToWorkWith = monthlyTakeHome - rothIraMonthly;
+                const totalExpenses = expenses.reduce((sum, exp) => sum + exp.value, 0);
+                const surplus = moneyToWorkWith - totalExpenses;
+
+                const monthlyInvestmentTotal = monthly401k + monthlyMatch + rothIraMonthly;
+
+                const calculateTerminalBalance = (rate) => {
+                    let balance = 0;
+                    const totalMonths = (stopAge - ageToday) * 12;
+                    for (let m = 1; m <= totalMonths; m++) {
+                        balance = (balance + monthlyInvestmentTotal) * (1 + (rate / 12));
+                    }
+                    return balance;
+                };
+
+                // Sandbox
+                const sbMonthlyGross = sbSalary / 12;
+                const sbMonthly401k = (sb401kRate / 100) * sbMonthlyGross;
+                const sbMonthlyMatch = getMatchAmount(sbSalary, sb401kRate);
+                const sbMonthlyTaxableInv = sbMonthly401k + sbMonthlyMatch;
+                let sandboxTaxable = 0, sandboxRoth = 0;
+                const totalSandboxMonths = Math.max(0, (sbRetirementAge - sbAgeToday) * 12);
+                const contributionMonths = Math.max(0, (sbContributeUntil - sbAgeToday) * 12);
+
+                for (let m = 1; m <= totalSandboxMonths; m++) {
+                    const isContributing = m <= contributionMonths;
+                    sandboxTaxable = (sandboxTaxable + (isContributing ? sbMonthlyTaxableInv : 0)) * (1 + ((sbReturn / 100) / 12));
+                    sandboxRoth = (sandboxRoth + (isContributing ? sbRothMonthly : 0)) * (1 + ((sbReturn / 100) / 12));
+                }
+
+                return { 
+                    monthlyTakeHome, moneyToWorkWith, surplus, 
+                    monthlyMatch, monthly401k, totalExpenses,
+                    rothIraMonthly,
+                    matchRemaining: Math.max(0, (matchTier1Limit + matchTier2Limit) - user401kContribution),
+                    fullMatchReq: (matchTier1Limit + matchTier2Limit),
+                    terminalBalanceHistorical: calculateTerminalBalance(0.06),
+                    sandbox: { total: sandboxTaxable + sandboxRoth, taxable: sandboxTaxable, roth: sandboxRoth }
+                };
+            }, [annualSalary, user401kContribution, selectedState, expenses, rothIraAnnual, matchTier1Rate, matchTier1Limit, matchTier2Rate, matchTier2Limit, ageToday, stopAge, sbReturn, sbRothMonthly, sbSalary, sb401kRate, sbContributeUntil, sbRetirementAge, sbAgeToday]);
+
+            const tabs = ['start', 'investing', 'budget', 'analysis'];
+            const currentIdx = tabs.indexOf(activeTab);
+            const isBudgetBalanced = calculations.surplus >= 0;
+
+            return (
+                <div className="min-h-screen pb-32">
+                    <nav className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50">
+                        <div className="flex items-center gap-2">
+                            <div className="bg-emerald-600 p-2 rounded-xl shadow-lg shadow-emerald-100 flex items-center justify-center">
+                                <Icon name="trending-up" className="text-white" size={18} />
+                            </div>
+                            <div>
+                                <span className="font-black text-xl tracking-tighter text-slate-800 uppercase italic leading-none block">WealthPlanner</span>
+                                <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest leading-none">v18.0</span>
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <span className="text-[10px] font-black text-slate-400 block uppercase tracking-widest mb-1">Monthly Surplus</span>
+                            <span className={`font-black text-lg ${calculations.surplus >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                ${Math.round(calculations.surplus).toLocaleString()}
+                            </span>
+                        </div>
+                    </nav>
+
+                    <main className="max-w-xl mx-auto px-4 mt-8">
+                        <div className="flex gap-1 mb-8 bg-slate-200/60 p-1.5 rounded-2xl">
+                            {tabs.map((tab) => (
+                                <button
+                                    key={tab}
+                                    disabled={tab === 'analysis' && !isBudgetBalanced}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`flex-1 py-2.5 rounded-xl font-black text-[10px] transition-all uppercase tracking-widest ${
+                                        activeTab === tab ? 'bg-white text-emerald-600 shadow-sm' : 
+                                        (tab === 'analysis' && !isBudgetBalanced ? 'text-slate-300 cursor-not-allowed' : 'text-slate-500')
+                                    }`}
+                                >
+                                    {tab}
+                                </button>
+                            ))}
+                        </div>
+
+                        {activeTab === 'start' && (
+                            <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200 space-y-6">
+                                <h2 className="text-lg font-black flex items-center gap-2 uppercase tracking-tight text-slate-700">
+                                    <Icon name="briefcase" className="text-emerald-600" /> Employment Basis
+                                </h2>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Age Today</label>
+                                        <input type="number" className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-100 font-black text-xl outline-none" value={ageToday} onChange={(e) => setAgeToday(Number(e.target.value))} />
+                                    </div>
+                                    <div>
+                                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">State</label>
+                                        <select className="w-full bg-slate-50 p-4 rounded-2xl border border-slate-100 font-bold text-sm outline-none appearance-none" value={selectedState} onChange={(e) => setSelectedState(e.target.value)}>
+                                            {Object.keys(STATE_TAX_RATES).map(s => <option key={s} value={s}>{s}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Expected Annual Salary</label>
+                                    <div className="flex items-center bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                                        <span className="text-2xl font-black text-slate-300 mr-2">$</span>
+                                        <input type="number" className="bg-transparent text-2xl font-black outline-none w-full" value={annualSalary} onChange={(e) => setAnnualSalary(Number(e.target.value))} />
+                                    </div>
+                                </div>
+                            </section>
+                        )}
+
+                        {activeTab === 'investing' && (
+                            <div className="space-y-6">
+                                <section className="bg-emerald-900 rounded-[2.5rem] p-8 text-white shadow-xl">
+                                    <div className="flex justify-between mb-4">
+                                        <h3 className="text-emerald-100 font-black text-2xl uppercase italic">401k Contribution</h3>
+                                        <span className="text-6xl font-black leading-none">{user401kContribution}%</span>
+                                    </div>
+                                    <input type="range" min="0" max="30" className="w-full h-2 bg-emerald-800 rounded-lg appearance-none cursor-pointer mb-8" value={user401kContribution} onChange={(e) => setUser401kContribution(Number(e.target.value))} />
+                                    <div className="grid grid-cols-2 gap-4 border-t border-emerald-800/50 pt-6">
+                                        <div>
+                                            <span className="text-[10px] text-emerald-500 uppercase font-black block">Monthly Cost</span>
+                                            <span className="text-xl font-bold">${Math.round(calculations.monthly401k).toLocaleString()}</span>
+                                        </div>
+                                        <div>
+                                            <span className="text-[10px] text-emerald-500 uppercase font-black block">Employer Match</span>
+                                            <span className="text-xl font-bold text-emerald-400">+${Math.round(calculations.monthlyMatch).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                </section>
+                                <section className="bg-emerald-900 rounded-[2.5rem] p-8 text-white shadow-xl">
+                                    <h3 className="text-emerald-100 font-black text-2xl uppercase italic mb-4">Roth IRA Annual Goal</h3>
+                                    <div className="text-6xl font-black mb-8">${rothIraAnnual.toLocaleString()}</div>
+                                    <input type="range" min="0" max="7000" step="100" className="w-full h-2 bg-emerald-800 rounded-lg appearance-none cursor-pointer mb-8" value={rothIraAnnual} onChange={(e) => setRothIraAnnual(Number(e.target.value))} />
+                                    <div className="flex justify-between border-t border-emerald-800/50 pt-6">
+                                        <div>
+                                            <span className="text-[10px] text-emerald-500 uppercase font-black block">Monthly Contribution</span>
+                                            <span className="text-xl font-bold">${Math.round(calculations.rothIraMonthly).toLocaleString()}</span>
+                                        </div>
+                                        <button onClick={() => setRothIraAnnual(7000)} className="text-[10px] font-black uppercase text-emerald-400">Max Limit</button>
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {activeTab === 'budget' && (
+                            <div className="space-y-6">
+                                <section className="bg-emerald-600 rounded-[2rem] p-6 text-white shadow-xl flex flex-col gap-4">
+                                    <div className="flex justify-between items-center border-b border-white/20 pb-4">
+                                        <div>
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-100/70 block">Monthly Income</span>
+                                            <span className="text-2xl font-black italic tracking-tighter">${Math.round(calculations.monthlyTakeHome).toLocaleString()}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-100/70 block">Budgeted Expenses</span>
+                                            <span className="text-2xl font-black italic tracking-tighter">${Math.round(calculations.totalExpenses).toLocaleString()}</span>
+                                        </div>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <span className="text-[9px] font-black uppercase tracking-widest text-emerald-100/70 block">Available for Savings</span>
+                                            <span className="text-3xl font-black tracking-tighter">${Math.round(calculations.surplus).toLocaleString()}</span>
+                                        </div>
+                                        <div className="text-[10px] font-bold text-emerald-100 text-right italic leading-tight max-w-[150px]">
+                                            Make adjustments below or add new budget categories.
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section className="bg-white rounded-[2rem] p-8 shadow-sm border border-slate-200">
+                                    <div className="flex justify-between items-center mb-8">
+                                        <h2 className="text-lg font-black uppercase tracking-tight text-slate-700">Budget Categories</h2>
+                                        <button onClick={addExpense} className="bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-black text-[10px] uppercase flex items-center gap-2">ADD <Icon name="plus" size={14}/></button>
+                                    </div>
+                                    <div className="space-y-3">
+                                        {expenses.map((expense) => (
+                                            <div key={expense.id} className="flex items-center gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                                                <div className="p-2 bg-white rounded-lg text-slate-400">
+                                                    <Icon name={expense.icon} size={18} />
+                                                </div>
+                                                <div className="flex-1">
+                                                    <input className="bg-transparent font-bold text-sm outline-none w-full" value={expense.label} onChange={(e) => {
+                                                        const newExp = [...expenses];
+                                                        newExp.find(ex => ex.id === expense.id).label = e.target.value;
+                                                        setExpenses(newExp);
+                                                    }} />
+                                                    <input type="number" className="bg-transparent text-xs font-black outline-none" value={expense.value} onChange={(e) => {
+                                                        const newExp = [...expenses];
+                                                        newExp.find(ex => ex.id === expense.id).value = Number(e.target.value);
+                                                        setExpenses(newExp);
+                                                    }} />
+                                                </div>
+                                                <button onClick={() => removeExpense(expense.id)} className="text-rose-400 p-2"><Icon name="trash-2" size={16} /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+
+                        {activeTab === 'analysis' && (
+                            <div className="space-y-6">
+                                <section className="bg-emerald-600 rounded-[2.5rem] p-10 text-white shadow-xl text-center">
+                                    <h3 className="text-sm font-black uppercase tracking-widest mb-4">ESTIMATED RETIREMENT SAVINGS</h3>
+                                    <div className="text-5xl md:text-6xl font-black mb-2 tracking-tight">
+                                        ${Math.round(calculations.terminalBalanceHistorical).toLocaleString()}
+                                    </div>
+                                    <p className="text-[10px] font-black text-emerald-300/60 uppercase tracking-widest mt-6">Estimated at 6% Return</p>
+                                </section>
+                                
+                                <section className="bg-slate-900 rounded-[2.5rem] p-8 text-white">
+                                    <h3 className="text-xl font-black uppercase italic mb-8">Projection Sandbox</h3>
+                                    <div className="space-y-6">
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex justify-between">Annual Return <span>{sbReturn}%</span></label>
+                                            <input type="range" min="1" max="15" step="0.5" className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" value={sbReturn} onChange={(e) => setSbReturn(Number(e.target.value))} />
+                                        </div>
+                                        <div className="bg-slate-800/50 rounded-3xl p-8 border border-slate-700/50 text-center">
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1">Sandbox Balance</span>
+                                            <div className="text-5xl font-black text-white tracking-tighter">
+                                                ${Math.round(calculations.sandbox.total).toLocaleString()}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </section>
+                            </div>
+                        )}
+                    </main>
+
+                    <div className="fixed bottom-8 left-0 right-0 px-4 flex justify-center z-50 pointer-events-none">
+                        <div className="bg-white/80 backdrop-blur-xl border border-slate-200 p-2 rounded-2xl shadow-2xl flex gap-2 pointer-events-auto max-w-xs w-full">
+                            {currentIdx > 0 && (
+                                <button onClick={() => setActiveTab(tabs[currentIdx - 1])} className="p-4 bg-slate-100 text-slate-600 rounded-xl flex items-center justify-center"><Icon name="arrow-left" size={20} /></button>
+                            )}
+                            <button 
+                                disabled={currentIdx === tabs.length - 1 || (activeTab === 'budget' && !isBudgetBalanced)}
+                                onClick={() => setActiveTab(tabs[currentIdx + 1])}
+                                className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-xl font-black uppercase tracking-widest text-sm transition-all ${
+                                    (activeTab === 'budget' && !isBudgetBalanced) ? 'bg-slate-100 text-slate-300' : 'bg-emerald-600 text-white'
+                                }`}
+                            >
+                                {activeTab === 'budget' && !isBudgetBalanced ? "Balance Needed" : "Continue"}
+                            </button>
+                        </div>
+                    </div>
                 </div>
-                <p className="text-[10px] font-black text-emerald-300/60 uppercase tracking-widest mt-6">Estimated at 6% Return</p>
-            </section>
+            );
+        }
 
-            <section className="bg-slate-900 rounded-[2.5rem] p-8 shadow-2xl text-white border border-slate-800">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="bg-emerald-500 p-2 rounded-xl"><Settings2 size={20} className="text-slate-900" /></div>
-                <h3 className="text-xl font-black uppercase tracking-tight italic">Projection Sandbox</h3>
-              </div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8 ml-12">
-                Make adjustments below to see how small changes you make can have a big impact.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-10">
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Expected Salary</label>
-                      <span className="text-lg font-black text-emerald-400">${sbSalary.toLocaleString()}</span>
-                    </div>
-                    <input type="range" min="30000" max="250000" step="1000" className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" value={sbSalary} onChange={(e) => setSbSalary(Number(e.target.value))} />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">401k Monthly</label>
-                      <span className="text-lg font-black text-emerald-400">${Math.round((sb401kRate/100)*(sbSalary/12)).toLocaleString()}</span>
-                    </div>
-                    <input type="range" min="0" max="30" step="1" className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" value={sb401kRate} onChange={(e) => setSb401kRate(Number(e.target.value))} />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Roth IRA Monthly</label>
-                      <span className="text-lg font-black text-emerald-400">${sbRothMonthly}</span>
-                    </div>
-                    <input type="range" min="0" max="583" step="1" className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" value={sbRothMonthly} onChange={(e) => setSbRothMonthly(Number(e.target.value))} />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Avg. Annual Return</label>
-                      <span className="text-lg font-black text-emerald-400">{sbReturn}%</span>
-                    </div>
-                    <input type="range" min="1" max="15" step="0.5" className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" value={sbReturn} onChange={(e) => setSbReturn(Number(e.target.value))} />
-                  </div>
-                </div>
-
-                <div className="space-y-6">
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Age Today</label>
-                      <span className="text-lg font-black text-emerald-400">{sbAgeToday}</span>
-                    </div>
-                    <input type="range" min="21" max="55" step="1" className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" value={sbAgeToday} onChange={(e) => setSbAgeToday(Number(e.target.value))} />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contribute Until Age</label>
-                      <span className="text-lg font-black text-emerald-400">{sbContributeUntil}</span>
-                    </div>
-                    <input type="range" min={sbAgeToday} max="75" step="1" className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" value={sbContributeUntil} onChange={(e) => setSbContributeUntil(Number(e.target.value))} />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-end mb-2">
-                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Retirement Age</label>
-                      <span className="text-lg font-black text-emerald-400">{sbRetirementAge}</span>
-                    </div>
-                    <input type="range" min="60" max="75" step="1" className="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-emerald-500" value={sbRetirementAge} onChange={(e) => setSbRetirementAge(Number(e.target.value))} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-slate-800/50 rounded-3xl p-8 border border-slate-700/50">
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest block mb-1 text-center italic">Updated Projection</span>
-                <div className="text-5xl font-black text-white text-center mb-6 tracking-tighter">
-                  ${Math.round(calculations.sandbox.total).toLocaleString()}
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700/30">
-                    <span className="text-[9px] font-black text-slate-500 uppercase block">Taxable (401k)</span>
-                    <span className="text-lg font-bold">${Math.round(calculations.sandbox.taxable).toLocaleString()}</span>
-                  </div>
-                  <div className="bg-emerald-900/20 p-4 rounded-xl border border-emerald-900/30">
-                    <span className="text-[9px] font-black text-emerald-500 uppercase block">Tax-Free (Roth)</span>
-                    <span className="text-lg font-bold text-emerald-400">${Math.round(calculations.sandbox.roth).toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-            </section>
-          </div>
-        )}
-      </main>
-
-      <div className="fixed bottom-8 left-0 right-0 px-4 flex justify-center z-50 pointer-events-none">
-        <div className="bg-white/80 backdrop-blur-xl border border-slate-200 p-2 rounded-2xl shadow-2xl flex gap-2 pointer-events-auto max-w-xs w-full">
-          {currentIdx > 0 && (
-            <button onClick={() => setActiveTab(tabs[currentIdx - 1])} className="p-4 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all"><ArrowLeft size={20} /></button>
-          )}
-          <button 
-            disabled={!canContinue || currentIdx === tabs.length - 1}
-            onClick={() => setActiveTab(tabs[currentIdx + 1])}
-            className={`flex-1 flex items-center justify-center gap-3 py-4 rounded-xl font-black uppercase tracking-widest text-sm transition-all shadow-lg shadow-emerald-100 ${
-              !canContinue || currentIdx === tabs.length - 1 
-                ? 'bg-slate-100 text-slate-300 cursor-not-allowed shadow-none' 
-                : 'bg-emerald-600 text-white hover:bg-emerald-700'
-            }`}
-          >
-            {activeTab === 'budget' && !isBudgetBalanced ? "Balance Needed" : currentIdx === tabs.length - 1 ? "Finalized" : "Continue"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
